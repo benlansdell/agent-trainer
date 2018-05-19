@@ -1,9 +1,9 @@
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 	ifeq ($(USE_GPU),true)
-        PIP_REQUIREMENTS := requirements-linux-gpu.txt
+        PIP_REQUIREMENTS := requirements.txt
     else
-        PIP_REQUIREMENTS := requirements-linux-cpu.txt
+        PIP_REQUIREMENTS := requirements.txt
     endif
 endif
 ifeq ($(UNAME_S),Darwin)

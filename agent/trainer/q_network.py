@@ -58,8 +58,8 @@ class QNetwork(object):
         self.tf_session = tf.Session(graph=self.tf_graph)
 
         with self.tf_graph.as_default():
-            self.tf_all_summaries = tf.merge_all_summaries()
-            self.tf_summary_writer = tf.train.SummaryWriter(logdir=metrics_directory, graph=self.tf_graph)
+            self.tf_all_summaries = tf.summary.merge_all()
+            self.tf_summary_writer = tf.summary.FileWriter(logdir=metrics_directory, graph=self.tf_graph)
             self.tf_saver = tf.train.Saver()
             tf.initialize_all_variables().run(session=self.tf_session)
 
@@ -95,7 +95,7 @@ class QNetwork(object):
                                                               record_metrics=True)
 
             action_indexes = tf.placeholder(tf.float32, shape=(self.hyperparameters.SGD_BATCH_SIZE, self.num_actions), name='action_indexes')
-            output_filtered_action_q_values = tf.reduce_sum(tf.mul(output_all_actions_q_values, action_indexes), reduction_indices=1)
+            output_filtered_action_q_values = tf.reduce_sum(tf.multiply(output_all_actions_q_values, action_indexes), reduction_indices=1)
 
             target_action_q_values = tf.placeholder(tf.float32, shape=(self.hyperparameters.SGD_BATCH_SIZE), name='target_action_q_values')
             delta = target_action_q_values - output_filtered_action_q_values
@@ -106,8 +106,8 @@ class QNetwork(object):
                                                   momentum=self.hyperparameters.RMS_MOMENTUM,
                                                   epsilon=self.hyperparameters.RMS_EPSILON).minimize(loss)
 
-            tf.scalar_summary('loss', loss)
-            tf.scalar_summary('learning_rate', learning_rate)
+            tf.summary.scalar('loss', loss)
+            tf.summary.scalar('learning_rate', learning_rate)
 
         return TFGraphTrainBundle(input_states=input_states,
                                   output_all_actions_q_values=output_all_actions_q_values,
@@ -180,7 +180,7 @@ class QNetwork(object):
             grid_x = output_channels // 4
             grid_y = 4 * input_channels
             kernels_image_grid = self._create_kernels_image_grid(weights, (grid_x, grid_y))
-            tf.image_summary(scope_name + '/features', kernels_image_grid, max_images=1)
+            tf.summary.image(scope_name + '/features', kernels_image_grid, max_outputs=1)
 
             if "_conv1" in scope_name:
                 x_min = tf.reduce_min(weights)
@@ -188,10 +188,10 @@ class QNetwork(object):
                 weights_0_to_1 = (weights - x_min) / (x_max - x_min)
                 weights_0_to_255_uint8 = tf.image.convert_image_dtype(weights_0_to_1, dtype=tf.uint8)
 
-                # to tf.image_summary format [batch_size, height, width, channels]
+                # to tf.summary.image format [batch_size, height, width, channels]
                 weights_transposed = tf.transpose(weights_0_to_255_uint8, [3, 0, 1, 2])
 
-                tf.image_summary(scope_name + '/features', weights_transposed[:,:,:,0:1], max_images=32)
+                tf.summary.image(scope_name + '/features', weights_transposed[:,:,:,0:1], max_outputs=32)
 
         return output
 
@@ -214,8 +214,8 @@ class QNetwork(object):
 
     def _activation_summary(self, tensor):
         tensor_name = tensor.op.name
-        tf.histogram_summary(tensor_name + '/activations', tensor)
-        tf.scalar_summary(tensor_name + '/sparsity', tf.nn.zero_fraction(tensor))
+        tf.summary.histogram(tensor_name + '/activations', tensor)
+        tf.summary.scalar(tensor_name + '/sparsity', tf.nn.zero_fraction(tensor))
 
     def _create_kernels_image_grid(self, kernel, (grid_X, grid_Y), pad=1):
         '''Visualize conv. features as an image (mostly for the 1st layer).
@@ -230,7 +230,7 @@ class QNetwork(object):
           Tensor of shape [(Y+pad)*grid_Y, (X+pad)*grid_X, NumChannels, 1].
         '''
 
-        flattened_kernel = tf.reshape(kernel, tf.pack([kernel.get_shape()[0],
+        flattened_kernel = tf.reshape(kernel, tf.stack([kernel.get_shape()[0],
                                                        kernel.get_shape()[1],
                                                        1,
                                                        kernel.get_shape()[3] * kernel.get_shape()[2]]))
@@ -245,12 +245,12 @@ class QNetwork(object):
         # put NumKernels to the 1st dimension
         x2 = tf.transpose(x1, (3, 0, 1, 2))
         # organize grid on Y axis
-        x3 = tf.reshape(x2, tf.pack([grid_X, Y * grid_Y, X, 1]))
+        x3 = tf.reshape(x2, tf.stack([grid_X, Y * grid_Y, X, 1]))
 
         # switch X and Y axes
         x4 = tf.transpose(x3, (0, 2, 1, 3))
         # organize grid on X axis
-        x5 = tf.reshape(x4, tf.pack([1, X * grid_X, Y * grid_Y, 1]))
+        x5 = tf.reshape(x4, tf.stack([1, X * grid_X, Y * grid_Y, 1]))
 
         # back to normal order (not combining with the next step for clarity)
         x6 = tf.transpose(x5, (2, 1, 3, 0))

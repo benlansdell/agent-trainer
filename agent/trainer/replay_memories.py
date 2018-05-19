@@ -1,7 +1,8 @@
 from collections import namedtuple, deque, OrderedDict
 from itertools import islice
 import os.path
-import cPickle as pickle
+#import cPickle as pickle
+import pickle
 import random
 import numpy as np
 import logging
